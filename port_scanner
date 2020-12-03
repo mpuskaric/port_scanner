@@ -1,0 +1,78 @@
+#!/bin/bash
+
+# Multi process port scanner 
+# Author: mpuskaric
+# Date: December 2020
+# Inspired by: https://github.com/porterhau5/bash-port-scanner/blob/master/scanner 
+
+host=$1
+ports=()
+
+if [[ -f .port_scanner ]]; then
+  rm .port_scanner
+  touch .port_scanner
+else
+  touch .port_scanner
+fi
+
+if [ -z $1 ]; then
+  echo "Usage: port_scanner <host> <port | ports | portrange>*"
+  echo " * is optional, all 65535 ports will be scanned by default"
+  exit
+fi
+
+if [ -z $2 ]; then
+  for ((i=1;i<=65535;i++)); do
+    ports+=($i)
+  done
+fi
+
+if [ -n $2 ]; then
+  case $2 in 
+    *-*)
+      IFS=- read start end <<< "$2"
+      for ((i=start;i<=end;i++)); do
+        ports+=($i)
+      done
+      ;;
+    *,*)
+      IFS=, read -ra ports <<< "$2"
+      ;;
+    *)
+      ports+=($2)
+      ;;
+  esac
+fi
+
+if [ ${#ports[*]} -lt 10 ]; then
+  for i in ${!ports[*]}; do
+    if timeout 1 bash -c "echo > /dev/tcp/$host/${ports[$i]}" 2>/dev/null; then
+      echo "${ports[$i]}/tcp open"
+      echo "${ports[$j]}" >> .port_scanner
+    fi
+  done
+else
+  for ((i=0;i<${#ports[*]};i+=10)); do
+    for ((j=i;j<i+10&&j<${#ports[*]};j++)); do
+      ( if timeout 1 bash -c "echo > /dev/tcp/$host/${ports[$j]}" 2>/dev/null; then
+        echo "${ports[$j]}/tcp open"
+        echo "${ports[$j]}" >> .port_scanner
+      fi ) &
+    done
+    wait
+  done
+fi
+
+printf "\nNMAP flag:    -p"
+br=0
+for i in `cat .port_scanner`; do
+  ((br++))
+  if [[ $br -lt $(wc -l < .port_scanner) ]]; then
+    printf "%d," $i
+  else
+    printf "%d" $i
+  fi
+done
+printf "\n"
+
+rm .port_scanner
