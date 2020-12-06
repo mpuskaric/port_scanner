@@ -5,7 +5,7 @@ Parallel port scanner written in bash
 ```
 ./port_scanner <host> <port | ports | portrange | a^> <no of processes>^^
 ```
-^ are optional, which means:  
+
   ^ 'a' should all 65535 ports have to be scanned  
   ^^ is optional, 100 processes will be utilized by default  
 
