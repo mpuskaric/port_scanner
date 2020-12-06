@@ -16,8 +16,10 @@ else
 fi
 
 if [ -z $1 ]; then
-  echo "Usage: port_scanner <host> <port | ports | portrange>*"
-  echo " * is optional, all 65535 ports will be scanned by default"
+  echo "Usage: port_scanner <host> <port | ports | portrange | a* > <no of processes>**"
+  echo " * 'a' should all 65535 ports have to be scanned"
+  echo " ** is optional, 100 processes will be utilized by deafult"
+  echo "Example:   ./port_scanner 10.10.23.236 a 200 "
   exit
 fi
 
@@ -38,22 +40,34 @@ if [ -n $2 ]; then
     *,*)
       IFS=, read -ra ports <<< "$2"
       ;;
+    a)
+      for ((i=1;i<=65535;i++)); do
+        ports+=($i)
+      done
+      ;;
     *)
       ports+=($2)
       ;;
   esac
 fi
 
-if [ ${#ports[*]} -lt 10 ]; then
+if [ -z $3 ]; then
+  proc=100
+else
+  proc=($3)
+fi
+
+if [ ${#ports[*]} -lt $proc ]; then
   for i in ${!ports[*]}; do
     if timeout 1 bash -c "echo > /dev/tcp/$host/${ports[$i]}" 2>/dev/null; then
       echo "${ports[$i]}/tcp open"
-      echo "${ports[$j]}" >> .port_scanner
+      echo "${ports[$i]}" >> .port_scanner
     fi
+    wait
   done
 else
-  for ((i=0;i<${#ports[*]};i+=10)); do
-    for ((j=i;j<i+10&&j<${#ports[*]};j++)); do
+  for ((i=0;i<${#ports[*]};i+=$proc)); do 
+   for ((j=i;j<i+$proc&&j<${#ports[*]};j++)); do
       ( if timeout 1 bash -c "echo > /dev/tcp/$host/${ports[$j]}" 2>/dev/null; then
         echo "${ports[$j]}/tcp open"
         echo "${ports[$j]}" >> .port_scanner
